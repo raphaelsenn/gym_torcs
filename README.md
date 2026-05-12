@@ -14,18 +14,13 @@ Because torcs has memory leak bug at race reset.
 As an ad-hoc solution, we relaunch and automate the gui setting in torcs.
 Any better solution is welcome!
 
-# Requirements
-We are assuming you are using Ubuntu 14.04 LTS/16.04 LTS machine and installed
-* Python 3
+## Requirements
+We are assuming you are using Ubuntu 26.04 LTS or Fedora Workstation 44. The software below should be installed:
+* Python 3.11
 * xautomation (http://linux.die.net/man/7/xautomation)
-* OpenAI-Gym (https://github.com/openai/gym)
-* numpy
 * vtorcs-RL-color (installation of vtorcs-RL-color is explained in vtorcs-RL-color directory)
 
-# Example Code
-The example code and agent are written in example_experiment.py and sample_agent.py.
-
-# Initialization of the Race
+## Initialization of the Race
 After the insallation of vtorcs-RL-color, you need to initialize the race setting. You can find the detailed explanation in a document (https://arxiv.org/pdf/1304.1672.pdf), but here I show the simple gui-based setting.
 
 So first you need to run
@@ -75,14 +70,14 @@ pip install -e .
 ## Usage
 
 ```python
-import gym
+import gymnasium as gym
 from gym_torcs import TorcsEnv
 
 
 # Launch TORCS automatically
-env = TorcsEnv(vision=False, throttle=True, gear_change=False)
+env = TorcsEnv(throttle=True)
 
-obs = env.reset(relaunch=True)
+obs, info = env.reset()
 done = False
 
 total_reward = 0
@@ -97,7 +92,7 @@ while not done:
 
 print("Episode Reward:", total_reward)
 
-env.end()
+env.close()
 ```
 
 ##  Add Noise in Low-dim Sensors
