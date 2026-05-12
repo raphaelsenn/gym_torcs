@@ -43,37 +43,63 @@ in the second terminal window after you open the TORCS server (just as written a
 
 After the selection of the driving-window mode, you need to set the appropriate gui size. This is done by using the display option mode in Options --> Display. You can select the Screen Resolution, and you need to select 64x64 for visual input (our immplementation only support this screen size, other screen size results the unreasonable visual information). Then, you need to shut down TORCS to complete the configuration for the vision treatment.
 
+## Install
 
-# Simple How-To
+1. Create a virtual environment using conda and activate it:
+
+```bash
+conda create -n gym_torcs python=3.6 -y
+conda activate gym_torcs
+```
+
+2. Clone the repository and move into the repository:
+
+```bash
+git clone https://github.com/raphaelsenn/gym_torcs
+cd gym_torcs
+```
+
+
+3. Install requirements:
+
+```bash
+pip install -r requirements.txt
+```
+
+4. Install gym_torcs
+
+```bash
+pip install -e .
+```
+
+## Usage
 
 ```python
+import gym
 from gym_torcs import TorcsEnv
 
-#### Generate a Torcs environment
-# enable vision input, the action is steering only (1 dim continuous action)
-env = TorcsEnv(vision=True, throttle=False)
 
-# without vision input, the action is steering and throttle (2 dim continuous action)
-# env = TorcsEnv(vision=False, throttle=True)
+# Launch TORCS automatically
+env = TorcsEnv(vision=False, throttle=True, gear_change=False)
 
-ob = env.reset(relaunch=True)  # with torcs relaunch (avoid memory leak bug in torcs)
-# ob = env.reset()  # without torcs relaunch
+obs = env.reset(relaunch=True)
+done = False
 
-# Generate an agent
-from sample_agent import Agent
-agent = Agent(1)  # steering only
-action = agent.act(ob, reward, done, vision=True)
+total_reward = 0
+while not done:
+    action = env.action_space.sample()
 
-# single step
-ob, reward, done, _ = env.step(action)
+    obs, reward, done, info = env.step(action)
 
-# shut down torcs
+    total_reward += reward
+    print(f'Reward: {reward}')
+
+print("Episode Reward:", total_reward)
+
 env.end()
 ```
 
-# 
-
-# Add Noise in Low-dim Sensors
+##  Add Noise in Low-dim Sensors
 
 If you want to apply sensor noise in low-dimensional sensors, you should 
 
@@ -84,11 +110,5 @@ os.system('torcs -nofuel -nolaptime -noisy &')
 
 at 33 & 35th lines in gym_torcs.py
 
-# Great Application
-gym-torcs was utilized in DDPG experiment with Keras by Ben Lau. 
-This experiment is really great!
-
-https://yanpanlau.github.io/2016/10/11/Torcs-Keras.html
-
-# Acknowledgement
+##  Acknowledgement
 gym_torcs was developed during the spring internship 2016 at Preferred Networks.

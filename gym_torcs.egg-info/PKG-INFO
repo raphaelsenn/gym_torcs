@@ -1,0 +1,16 @@
+Metadata-Version: 2.1
+Name: gym-torcs
+Version: 0.0.1
+Summary: OpenAI Gym wrapper for TORCS racing simulator
+Home-page: UNKNOWN
+Author: gym_torcs contributors
+License: UNKNOWN
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3.6
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: POSIX :: Linux
+Requires-Python: >=3.6,<3.9
+License-File: LICENSE
+
+UNKNOWN
+

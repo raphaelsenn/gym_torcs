@@ -1,8 +1,7 @@
 import gym
 from gym import spaces
 import numpy as np
-# from os import path
-import snakeoil3_gym as snakeoil3
+import gym_torcs.snakeoil3_gym as snakeoil3
 import numpy as np
 import copy
 import collections as col
@@ -180,7 +179,7 @@ class TorcsEnv:
                 print("### TORCS is RELAUNCHED ###")
 
         # Modify here if you use multiple tracks in the environment
-        self.client = snakeoil3.Client(p=3101, vision=self.vision)  # Open new UDP in vtorcs
+        self.client = snakeoil3.Client(p=3001, vision=self.vision)  # Open new UDP in vtorcs
         self.client.MAX_STEPS = np.inf
 
         client = self.client
