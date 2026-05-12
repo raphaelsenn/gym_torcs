@@ -1,21 +1,26 @@
-import gym
+import gymnasium as gym
 from gym_torcs import TorcsEnv
 
 
 # Launch TORCS automatically
-env = TorcsEnv(vision=False, throttle=True, gear_change=False)
-obs = env.reset(relaunch=True)
-done = False
+env = TorcsEnv(throttle=True, max_episode_steps=10)
 
-total_reward = 0
-while not done:
-    action = env.action_space.sample()
 
-    obs, reward, done, info = env.step(action)
+for ep in range(3):
+    obs = env.reset(relaunch = True)
+    done = False
+    t = 0
+    total_reward = 0
+    while not done:
+        action = env.action_space.sample()
 
-    total_reward += reward
-    print(f'Reward: {reward}')
+        obs, reward, terminated, truncated, _ = env.step(action)
+        done = terminated or truncated
 
-print("episode reward:", total_reward)
+        total_reward += reward
+        print(t)
+        t += 1 
 
-env.end()
+    print(f"Episode {ep + 1} with reward: {reward}")
+
+env.close()

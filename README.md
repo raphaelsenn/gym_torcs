@@ -48,7 +48,7 @@ After the selection of the driving-window mode, you need to set the appropriate 
 1. Create a virtual environment using conda and activate it:
 
 ```bash
-conda create -n gym_torcs python=3.6 -y
+conda create -n gym_torcs python=3.11 -y
 conda activate gym_torcs
 ```
 
@@ -89,7 +89,8 @@ total_reward = 0
 while not done:
     action = env.action_space.sample()
 
-    obs, reward, done, info = env.step(action)
+    obs, reward, terminated, truncated, info = env.step(action)
+    done = terminated or truncated
 
     total_reward += reward
     print(f'Reward: {reward}')
