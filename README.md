@@ -66,45 +66,45 @@ pip install -r requirements.txt
 ```bash
 pip install -e .
 ```
-
 ## Usage
+
+### Basic headless training example
+
+The recommended mode for reinforcement learning is `render_mode=None`. In this mode, the environment starts TORCS in text/headless mode and connects to the SCR server automatically.
 
 ```python
 import gymnasium as gym
-from gym_torcs import TorcsEnv
+import gym_torcs
 
 
-# Launch TORCS automatically
-env = TorcsEnv(throttle=True)
+env = gym.make(
+    "TorcsSCR-v0",
+    render_mode=None,
+    port=3001,
+    track_name="forza",
+    track_category="road",
+    throttle=True,
+    reset_strategy="relaunch",
+    debug=False,
+)
 
 obs, info = env.reset()
-done = False
 
-total_reward = 0
+done = False
+episode_reward = 0.0
+
 while not done:
     action = env.action_space.sample()
 
     obs, reward, terminated, truncated, info = env.step(action)
     done = terminated or truncated
 
-    total_reward += reward
-    print(f'Reward: {reward}')
+    episode_reward += reward
 
-print("Episode Reward:", total_reward)
+print(f"Episode reward: {episode_reward:.2f}")
 
 env.close()
 ```
-
-##  Add Noise in Low-dim Sensors
-
-If you want to apply sensor noise in low-dimensional sensors, you should 
-
-```
-os.system('torcs -nofuel -nodamage -nolaptime -vision -noisy &')
-os.system('torcs -nofuel -nolaptime -noisy &')
-```
-
-at 33 & 35th lines in gym_torcs.py
 
 ##  Acknowledgement
 gym_torcs was developed during the spring internship 2016 at Preferred Networks.
