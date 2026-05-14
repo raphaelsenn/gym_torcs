@@ -24,10 +24,10 @@ for ep in range(2):
     print(info) 
     while not done:
         action = env.action_space.sample()
-
+        action[1] = abs(action[1])
         obs, reward, terminated, truncated, info = env.step(action)
         done = terminated or truncated
-        #print(reward, info)
+        print(info) 
         total_reward += reward
 
     print(f"Episode {ep + 1} with reward: {reward}")
