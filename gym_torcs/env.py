@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 from typing import Any
 
 import gymnasium as gym
@@ -13,6 +14,8 @@ from gym_torcs.constants import (
     MAX_FOCUS,
     MAX_OPPONENTS,
     MAX_TRACK,
+    MAX_RPM,
+    MAX_WHEEL_SPIN_VEL,
     TERMINAL_JUDGE_START,
     TERMINATION_LIMIT_PROGRESS,
 )
@@ -37,7 +40,7 @@ class TorcsEnv(gym.Env[np.ndarray, np.ndarray]):
         template_xml: str | None = None,
         template_practice_xml: str | None = None,  # backwards-compatible alias
         throttle: bool = True,
-        max_episode_steps: int = 100_000,
+        max_episode_steps: int = 250_000,
         reset_strategy: str = "relaunch",
         auto_start_server: bool = True,
         startup_sleep: float = 1.0,
@@ -339,20 +342,25 @@ class TorcsEnv(gym.Env[np.ndarray, np.ndarray]):
     def step(self, action: np.ndarray) -> tuple[np.ndarray, float, bool, bool, dict[str, Any]]:
         if self.client is None:
             raise RuntimeError("Call reset() before step().")
+
         action = np.asarray(action, dtype=np.float32)
-        action = np.clip(action, self.action_space.low, self.action_space.high)
+        noise = np.random.normal(0.0, 0.01, size=action.shape).astype(np.float32) 
+        action = (action + noise).clip(self.action_space.low, self.action_space.high)
 
         prev = dict(self.client.state.data)
         self._apply_action(action)
         self.client.send()
         raw = self.client.receive()
 
-        reward = self._reward(raw, prev)
+        reward = self._reward(raw, prev, action)
+
         terminated = self._terminated(raw, reward)
         truncated = self.time_step >= self.max_episode_steps
+        info = self._info(raw)
+
         self.time_step += 1
 
-        return self._obs(raw), reward, terminated, truncated, {}
+        return self._obs(raw), reward, terminated, truncated, info
 
     def render(self) -> None:
         return None
@@ -369,10 +377,11 @@ class TorcsEnv(gym.Env[np.ndarray, np.ndarray]):
         state = self.client.state.data
         cmd.steer = float(action[0])
 
-        if self.throttle:
+        if self.throttle is True:
             throttle = float(action[1])
             cmd.accel = max(throttle, 0.0)
             cmd.brake = max(-throttle, 0.0)
+        
         else:
             target = DEFAULT_SPEED
             cmd.brake = 0.0
@@ -384,19 +393,41 @@ class TorcsEnv(gym.Env[np.ndarray, np.ndarray]):
         cmd.gear = self._gear(float(state["speedX"]))
 
     def _obs(self, raw: dict[str, Any]) -> np.ndarray:
-        return np.concatenate([
+        obs = np.concatenate([
             np.asarray(raw["focus"], dtype=np.float32) / MAX_FOCUS,
             np.asarray([raw["speedX"], raw["speedY"], raw["speedZ"]], dtype=np.float32) / DEFAULT_SPEED,
             np.asarray(raw["opponents"], dtype=np.float32) / MAX_OPPONENTS,
-            np.asarray([raw["rpm"]], dtype=np.float32) / 10_000.0,
+            np.asarray([raw["rpm"]], dtype=np.float32) / MAX_RPM,
             np.asarray(raw["track"], dtype=np.float32) / MAX_TRACK,
-            np.asarray(raw["wheelSpinVel"], dtype=np.float32) / 100.0,
+            np.asarray(raw["wheelSpinVel"], dtype=np.float32) / MAX_WHEEL_SPIN_VEL,
         ]).astype(np.float32)
 
-    def _reward(self, obs: dict[str, Any], prev: dict[str, Any]) -> float:
-        progress = float(obs["speedX"] * np.cos(obs["angle"]))
-        damage = float(obs.get("damage", 0.0) - prev.get("damage", 0.0))
-        return progress - float(damage > 0.0)
+        noise = np.random.normal(0.0, 0.03, size=obs.shape).astype(np.float32)
+        obs = obs + noise
+
+        return obs
+
+    def _reward(self, obs: dict[str, Any], prev: dict[str, Any], action: np.ndarray) -> float:
+        speed = float(obs["speedX"])
+        angle = float(obs["angle"])
+        track = np.asarray(obs["track"], dtype=np.float32)
+
+        # Forward progress aligned with road direction
+        progress = speed * np.cos(angle)
+
+        # Penalize steering magnitude
+        steer_penalty = abs(float(action[0]))
+
+        # Damage delta
+        damage_delta = float(obs.get("damage", 0.0)) - float(prev.get("damage", 0.0))
+        collision_penalty = max(damage_delta, 0.0)
+
+        # Off-track
+        off_track = float(track.min() < 0.0)
+
+        reward = progress - 0.2 * steer_penalty - collision_penalty - off_track
+
+        return reward
 
     def _terminated(self, obs: dict[str, Any], reward: float) -> bool:
         if np.asarray(obs["track"], dtype=np.float32).min() < 0.0:
@@ -409,6 +440,16 @@ class TorcsEnv(gym.Env[np.ndarray, np.ndarray]):
         if float(obs["lastLapTime"]) > 0.0:
             return True
         return False
+
+    def _info(self, obs: dict[str, Any]) -> dict[str, Any]:
+        info = {}
+        info["successfulLap"] = bool(float(obs["lastLapTime"]) > 0.0)
+        info["offTrack"] = bool(np.asarray(obs["track"], dtype=np.float32).min() < 0.0)
+        info["distRaced"] = obs["distRaced"]
+        info["timeAlive"] = obs["curLapTime"]
+        info["speedX"] = obs["speedX"]
+        info["speedY"] = obs["speedY"]
+        return info
 
     @staticmethod
     def _gear(speed_x: float) -> int:
