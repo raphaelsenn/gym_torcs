@@ -9,7 +9,7 @@ env = gym.make(
     render_mode="human",        # or None
     executable="/usr/local/bin/torcs",
     port=3001,                  # 3001..3010
-    track_name="ruudskogen",
+    track_name="street-1",
     track_category="road",
     laps=20,
     debug=True,
@@ -27,7 +27,6 @@ for ep in range(2):
         action[1] = abs(action[1])
         obs, reward, terminated, truncated, info = env.step(action)
         done = terminated or truncated
-        print(info) 
         total_reward += reward
 
     print(f"Episode {ep + 1} with reward: {reward}")

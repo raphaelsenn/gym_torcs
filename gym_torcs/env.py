@@ -12,7 +12,9 @@ from gym_torcs.constants import (
     DEFAULT_SPEED,
     DEFAULT_TORCS_EXECUTABLE,
     MAX_FOCUS,
-    MAX_OPPONENTS,
+    MAX_SPEED_X,
+    MAX_SPEED_Y,
+    MAX_SPEED_Z,
     MAX_TRACK,
     MAX_RPM,
     MAX_WHEEL_SPIN_VEL,
@@ -233,7 +235,7 @@ class TorcsEnv(gym.Env[np.ndarray, np.ndarray]):
 
         action_dim = 2 if throttle else 1
         self.action_space = spaces.Box(-1.0, 1.0, shape=(action_dim,), dtype=np.float32)
-        self.observation_space = spaces.Box(-np.inf, np.inf, shape=(68,), dtype=np.float32)
+        self.observation_space = spaces.Box(-np.inf, np.inf, shape=(29,), dtype=np.float32)
 
         if template_xml is None and template_practice_xml is not None:
             template_xml = template_practice_xml
@@ -344,8 +346,8 @@ class TorcsEnv(gym.Env[np.ndarray, np.ndarray]):
             raise RuntimeError("Call reset() before step().")
 
         action = np.asarray(action, dtype=np.float32)
-        noise = np.random.normal(0.0, 0.01, size=action.shape).astype(np.float32) 
-        action = (action + noise).clip(self.action_space.low, self.action_space.high)
+        # noise = np.random.normal(0.0, 0.005, size=action.shape).astype(np.float32) 
+        # action = (action + noise).clip(self.action_space.low, self.action_space.high)
 
         prev = dict(self.client.state.data)
         self._apply_action(action)
@@ -393,17 +395,20 @@ class TorcsEnv(gym.Env[np.ndarray, np.ndarray]):
         cmd.gear = self._gear(float(state["speedX"]))
 
     def _obs(self, raw: dict[str, Any]) -> np.ndarray:
-        obs = np.concatenate([
-            np.asarray(raw["focus"], dtype=np.float32) / MAX_FOCUS,
-            np.asarray([raw["speedX"], raw["speedY"], raw["speedZ"]], dtype=np.float32) / DEFAULT_SPEED,
-            np.asarray(raw["opponents"], dtype=np.float32) / MAX_OPPONENTS,
-            np.asarray([raw["rpm"]], dtype=np.float32) / MAX_RPM,
-            np.asarray(raw["track"], dtype=np.float32) / MAX_TRACK,
-            np.asarray(raw["wheelSpinVel"], dtype=np.float32) / MAX_WHEEL_SPIN_VEL,
-        ]).astype(np.float32)
+        speed = np.asarray([
+            raw["speedX"] / MAX_SPEED_X, 
+            raw["speedY"] / MAX_SPEED_Y, 
+            raw["speedZ"] / MAX_SPEED_Z
+        ], dtype=np.float32)
+        
+        rpm = np.asarray([raw["rpm"] / MAX_RPM], dtype=np.float32)
+        angle = np.asarray([raw["angle"] / np.pi], dtype=np.float32)
+        track_pos = np.asarray([raw["trackPos"]], dtype=np.float32)
+        track = np.asarray(raw["track"], dtype=np.float32) / MAX_TRACK
+        track = track + np.random.normal(0.0, 0.05, size=track.shape).astype(np.float32)
+        wheel_spin = np.asarray(raw["wheelSpinVel"], dtype=np.float32) / MAX_WHEEL_SPIN_VEL
 
-        noise = np.random.normal(0.0, 0.03, size=obs.shape).astype(np.float32)
-        obs = obs + noise
+        obs = np.concatenate([speed, rpm, angle, track_pos, track, wheel_spin]).astype(np.float32)
 
         return obs
 
@@ -413,19 +418,22 @@ class TorcsEnv(gym.Env[np.ndarray, np.ndarray]):
         track = np.asarray(obs["track"], dtype=np.float32)
 
         # Forward progress aligned with road direction
-        progress = speed * np.cos(angle)
+        progress = speed * np.cos(angle) - np.abs(speed * np.sin(angle))
 
         # Penalize steering magnitude
         steer_penalty = abs(float(action[0]))
 
-        # Damage delta
-        damage_delta = float(obs.get("damage", 0.0)) - float(prev.get("damage", 0.0))
-        collision_penalty = max(damage_delta, 0.0)
+        # Collision penalty
+        collision_penalty = 0.0
+        if float(obs.get("damage", 0.0)) - float(prev.get("damage", 0.0)) > 0.0: 
+            collision_penalty += 1.0
 
         # Off-track
-        off_track = float(track.min() < 0.0)
+        off_track_penalty = 0.0
+        if track.min() < 0.0:
+            off_track_penalty += 1.0
 
-        reward = progress - 0.2 * steer_penalty - collision_penalty - off_track
+        reward = 0.01 * progress - 0.1 * steer_penalty - collision_penalty - off_track_penalty
 
         return reward
 
