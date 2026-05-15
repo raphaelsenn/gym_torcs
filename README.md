@@ -1,71 +1,120 @@
 # Gym-TORCS
 
-Gym-TORCS is the reinforcement learning (RL) environment in TORCS domain with OpenAI-gym-like interface.
-TORCS is the open-rource realistic car racing simulator recently used as RL benchmark task in several AI studies.
+## About this version
 
-Gym-TORCS is the python wrapper of TORCS for RL experiment with the simple interface (similar, but not fully) compatible with OpenAI-gym environments. The current implementaion is for only the single-track race in practie mode. If you want to use multiple tracks or other racing mode (quick race etc.), you may need to modify the environment, "autostart.sh" or the race configuration file using GUI of TORCS.
+This implementation keeps the basic Gym-TORCS idea, but makes it a bit more useful for current RL experiments:
 
-This code is developed based on vtorcs (https://github.com/giuse/vtorcs)
-and python-client for torcs (http://xed.ch/project/snakeoil/index.html).
+- updated to the new Gymnasium API
+- track and road selection directly from the Python wrapper
+- no manual TORCS config editing needed for normal experiments
+- headless mode for faster training without the GUI
+- optional GUI mode for debugging
+- automatic GUI start when visual mode is used
+- more stable reset handling by relaunching TORCS when needed
+- support for multiple TORCS instances through different SCR ports
+- configurable race type, track, laps, port, render mode and reset strategy
+- simple continuous action space for steering and throttle/brake
+- normalized observations
+- optional observation and action noise
+- useful info values such as speed, distance raced, off-track state and lap success
 
-The detailed explanation of original TORCS for AI research is given by Daniele Loiacono et al. (https://arxiv.org/pdf/1304.1672.pdf)
+## References
 
-Because torcs has memory leak bug at race reset.
-As an ad-hoc solution, we relaunch and automate the gui setting in torcs.
-Any better solution is welcome!
+Here are more TORCS references:
 
-## Requirements
-We are assuming you are using Ubuntu 26.04 LTS or Fedora Workstation 44. The software below should be installed:
-* Python 3.11
-* xautomation (http://linux.die.net/man/7/xautomation)
-* vtorcs-RL-color (installation of vtorcs-RL-color is explained in vtorcs-RL-color directory)
-
-## Initialization of the Race
-After the insallation of vtorcs-RL-color, you need to initialize the race setting. You can find the detailed explanation in a document (https://arxiv.org/pdf/1304.1672.pdf), but here I show the simple gui-based setting.
-
-So first you need to run
-```
-sudo torcs
-```
-in the terminal, the GUI of TORCS should be launched.
-Then, you need to choose the race track by following the GUI (Race --> Practice --> Configure Race) and open TORCS server by selecting Race --> Practice --> New Race. This should result that TORCS keeps a blue screen with several text information.
-
-If you need to treat the vision input in your AI agent, you have to set the small image size in TORCS. To do so, you have to run
-```
-python snakeoil3_gym.py
-```
-in the second terminal window after you open the TORCS server (just as written above). Then the race starts, and you can select the driving-window mode by F2 key during the race.
-
-After the selection of the driving-window mode, you need to set the appropriate gui size. This is done by using the display option mode in Options --> Display. You can select the Screen Resolution, and you need to select 64x64 for visual input (our immplementation only support this screen size, other screen size results the unreasonable visual information). Then, you need to shut down TORCS to complete the configuration for the vision treatment.
+- [TORCS](https://torcs.sourceforge.net/)
+- [Gym-TORCS (original)](https://github.com/ugo-nama-kun/gym_torcs)
+- [vtorcs](https://github.com/giuse/vtorcs)
+- [SnakeOil TORCS client](http://xed.ch/project/snakeoil/index.html)
+- [TORCS for AI research paper](https://arxiv.org/pdf/1304.1672.pdf)
 
 ## Install
 
-1. Create a virtual environment using conda and activate it:
+## Fedora Linux 44 Workstation
+
+### Install TORCS 1.3.7 with the SCR server patch
+
+1. Clone the TORCS repository:
+
+```bash
+git clone https://github.com/raphaelsenn/torcs-1.3.7
+```
+
+2. Enter the repository:
+
+```bash
+cd torcs-1.3.7
+```
+
+3. Install the required packages:
+
+```bash
+sudo dnf install \
+  glib2-devel \
+  mesa-libGL-devel \
+  mesa-libGLU-devel \
+  freeglut-devel \
+  plib-devel \
+  openal-soft-devel \
+  freealut-devel \
+  libXi-devel \
+  libXmu-devel \
+  libXrender-devel \
+  libXrandr-devel \
+  libpng-devel \
+  libvorbis-devel \
+  gcc \
+  gcc-c++ \
+  make \
+  cmake \
+  automake \
+  autoconf \
+  libtool \
+  libXxf86vm-devel
+```
+
+4. Build and install TORCS:
+
+```bash
+make
+sudo make install
+sudo make datainstall
+```
+
+You should now be able to start TORCS with:
+
+```bash
+sudo torcs
+```
+
+### Install `gym_torcs`
+
+1. Create and activate a conda environment:
 
 ```bash
 conda create -n gym_torcs python=3.11 -y
 conda activate gym_torcs
 ```
 
-2. Clone the repository and move into the repository:
+2. Clone the repository:
 
 ```bash
 git clone https://github.com/raphaelsenn/gym_torcs
 cd gym_torcs
 ```
 
-
-3. Install requirements:
+3. Install the Python requirements:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-4. Install gym_torcs
+4. Install `gym_torcs` in editable mode:
 
 ```bash
 pip install -e .
 ```
+
 ## Usage
 
 ### Basic headless training example
@@ -106,5 +155,40 @@ print(f"Episode reward: {episode_reward:.2f}")
 env.close()
 ```
 
-##  Acknowledgement
-gym_torcs was developed during the spring internship 2016 at Preferred Networks.
+##  Citations
+
+```bibtex
+@misc{torcs,
+  author       = {Espi{\'e}, Eric and Guionneau, Christophe and Wymann, Bernhard and others},
+  title        = {{TORCS}: The Open Racing Car Simulator},
+  year         = {2026},
+  howpublished = {\url{https://sourceforge.net/projects/torcs/}},
+  note         = {Accessed: 2026-05-15}
+}
+
+@misc{torcs137scr,
+  author       = {Senn, Raphael},
+  title        = {{TORCS} 1.3.7 with {SCR} Server Patch},
+  year         = {2026},
+  howpublished = {\url{https://github.com/raphaelsenn/torcs-1.3.7}},
+  note         = {Patched version of TORCS 1.3.7 including the SCR server patch. Accessed: 2026-05-15}
+}
+
+@misc{gymtorcs,
+  author       = {Senn, Raphael},
+  title        = {{gym\_torcs}: A Gymnasium Interface for {TORCS}},
+  year         = {2026},
+  howpublished = {\url{https://github.com/raphaelsenn/gym_torcs}},
+  note         = {Reinforcement learning environment for TORCS with a Gymnasium-like interface. Accessed: 2026-05-15}
+}
+
+@misc{loiacono2013scr,
+  author       = {Loiacono, Daniele and Cardamone, Luigi and Lanzi, Pier Luca},
+  title        = {Simulated Car Racing Championship: Competition Software Manual},
+  year         = {2013},
+  eprint       = {1304.1672},
+  archivePrefix = {arXiv},
+  primaryClass = {cs.AI},
+  url          = {https://arxiv.org/abs/1304.1672}
+}
+```
