@@ -42,7 +42,7 @@ class TorcsEnv(gym.Env[np.ndarray, np.ndarray]):
         template_xml: str | None = None,
         template_practice_xml: str | None = None,  # backwards-compatible alias
         throttle: bool = True,
-        max_episode_steps: int = 250_000,
+        max_episode_steps: int = 100_000,
         reset_strategy: str = "relaunch",
         auto_start_server: bool = True,
         startup_sleep: float = 1.0,
@@ -401,12 +401,13 @@ class TorcsEnv(gym.Env[np.ndarray, np.ndarray]):
             raw["speedZ"] / MAX_SPEED_Z
         ], dtype=np.float32)
         
-        rpm = np.asarray([raw["rpm"] / MAX_RPM], dtype=np.float32)
-        angle = np.asarray([raw["angle"] / np.pi], dtype=np.float32)
+        rpm = np.asarray([raw["rpm"]], dtype=np.float32) / MAX_RPM
+        angle = np.asarray([raw["angle"]], dtype=np.float32) / np.pi
         track_pos = np.asarray([raw["trackPos"]], dtype=np.float32)
-        track = np.asarray(raw["track"], dtype=np.float32) / MAX_TRACK
-        track = track + np.random.normal(0.0, 0.05, size=track.shape).astype(np.float32)
         wheel_spin = np.asarray(raw["wheelSpinVel"], dtype=np.float32) / MAX_WHEEL_SPIN_VEL
+        
+        track = np.asarray(raw["track"], dtype=np.float32) / MAX_TRACK
+        track = track + np.random.normal(0.0, 0.1, size=track.shape).astype(np.float32)
 
         obs = np.concatenate([speed, rpm, angle, track_pos, track, wheel_spin]).astype(np.float32)
 
@@ -420,9 +421,6 @@ class TorcsEnv(gym.Env[np.ndarray, np.ndarray]):
         # Forward progress aligned with road direction
         progress = speed * np.cos(angle) - np.abs(speed * np.sin(angle))
 
-        # Penalize steering magnitude
-        steer_penalty = abs(float(action[0]))
-
         # Collision penalty
         collision_penalty = 0.0
         if float(obs.get("damage", 0.0)) - float(prev.get("damage", 0.0)) > 0.0: 
@@ -433,7 +431,7 @@ class TorcsEnv(gym.Env[np.ndarray, np.ndarray]):
         if track.min() < 0.0:
             off_track_penalty += 1.0
 
-        reward = 0.01 * progress - 0.1 * steer_penalty - collision_penalty - off_track_penalty
+        reward = 0.01 * progress - collision_penalty - off_track_penalty
 
         return reward
 
